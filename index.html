@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경성의 고독한 미식가들 — 관객 동선 워크플로우 (1막·2막 통합)</title>
+<style>
+  :root { color-scheme: light;
+    --paper:#f7f1e3; --paper2:#efe6d0; --ink:#2b2018; --line:#c9b892;
+    --red:#b03a2e; --purple:#7d4a9e; --teal:#177a63; --orange:#c96f14;
+    --blue:#2c5f9e; --gold:#a8781a; --green:#4a7c2f; --brown:#7a5230; --grey:#6b5d4d;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--paper); color:var(--ink);
+    font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif; padding:12px 16px 10px; }
+  header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  h1 { font-size:16.5px; letter-spacing:.4px; }
+  h1 small { font-weight:500; color:var(--grey); font-size:11px; margin-left:8px; }
+  .tabs { display:flex; gap:0; border:1.5px solid var(--ink); border-radius:9px; overflow:hidden; }
+  .tab { font-size:13px; font-weight:800; padding:6px 18px; cursor:pointer; background:#fffdf6; color:var(--ink);
+    border:none; transition:.15s; }
+  .tab.on { background:var(--ink); color:var(--paper); }
+  #modeBtn { font-size:12px; font-weight:800; padding:6px 14px; border-radius:9px; border:1.5px solid var(--ink);
+    background:#fffdf6; color:var(--ink); cursor:pointer; }
+  #modeBtn.block { background:var(--gold); color:#fff; border-color:var(--gold); }
+  .dots { display:flex; gap:5px; margin-left:auto; align-items:center; flex-wrap:wrap; }
+  .dot { width:9px; height:9px; border-radius:50%; border:1.5px solid var(--grey); cursor:pointer; transition:.2s; }
+  .dot.done { background:var(--gold); border-color:var(--gold); }
+  .dot.now { background:var(--red); border-color:var(--red); transform:scale(1.35); }
+  #stage { position:relative; width:100%; aspect-ratio:16/9.4; background:
+      radial-gradient(ellipse at 50% 48%, #fbf6ea 0%, var(--paper2) 68%, #e5d8bb 100%);
+    border:1.5px solid var(--line); border-radius:12px; overflow:hidden; cursor:pointer;
+    box-shadow:0 2px 10px rgba(80,60,20,.12) inset; }
+  #stage::after { content:'화면 클릭 = 다음 진행 ▸'; position:absolute; right:12px; bottom:8px;
+    font-size:11px; color:var(--grey); opacity:.75; pointer-events:none; }
+  .node { position:absolute; transform:translate(-50%,-50%); text-align:center; min-width:88px; max-width:174px;
+    padding:6px 9px 6px; background:#fffdf6; border:1.5px solid var(--line); border-radius:9px;
+    transition:all .4s; opacity:.4; box-shadow:0 1px 4px rgba(80,60,20,.15); pointer-events:none; }
+  .node .nm { font-size:11px; font-weight:700; letter-spacing:-.2px; white-space:nowrap; color:var(--grey); }
+  .node .sc { font-size:10.5px; font-weight:700; color:var(--ink); margin-top:2px; line-height:1.25; }
+  .node .sc:empty { display:none; }
+  .node .sc .no { color:var(--red); }
+  .node .cast { display:block; font-size:9px; font-weight:600; color:var(--brown); margin-top:1px; line-height:1.2; }
+  .node .ct { display:inline-block; margin-top:3px; font-size:12px; font-weight:800; color:#fff;
+    background:var(--grey); border-radius:20px; padding:1px 9px; min-width:30px; transition:.3s; }
+  .node.on { opacity:1; border-color:var(--gold); box-shadow:0 0 0 2px rgba(168,120,26,.25), 0 2px 8px rgba(80,60,20,.25); }
+  .node.on .nm { color:var(--ink); }
+  .node.on .ct { background:var(--red); }
+  .node.src .ct { background:var(--ink); }
+  .node.dst { border-color:var(--red); box-shadow:0 0 0 3px rgba(176,58,46,.28), 0 2px 8px rgba(80,60,20,.3); }
+  .node.dim { opacity:.13 !important; }
+  .node.hub { min-width:152px; max-width:214px; padding:9px 13px 9px; border-width:2px; border-radius:12px; }
+  .node.hub .nm { font-size:12.5px; }
+  .node.hub .sc { font-size:11.5px; }
+  .node.hub .ct { font-size:14.5px; padding:2px 13px; }
+  .chip { position:absolute; z-index:30; font-size:11px; font-weight:800; color:#fff;
+    padding:4px 11px; border-radius:20px; white-space:nowrap; pointer-events:none;
+    box-shadow:0 3px 8px rgba(0,0,0,.35); transform:translate(-50%,-50%); }
+  #panel { display:flex; gap:14px; align-items:flex-start; margin-top:8px; min-height:78px; }
+  #desc { flex:1; }
+  #desc .t { font-size:14.5px; font-weight:800; margin-bottom:3px; }
+  #desc .t .prog { font-size:11.5px; font-weight:700; color:var(--gold); margin-left:6px; }
+  #desc .t .trk { font-size:11px; font-weight:700; color:var(--red); margin-left:6px; }
+  #desc .d { font-size:12.5px; line-height:1.5; color:#4a3d2e; }
+  #desc .d b.w { color:var(--red); }
+  #desc .d .mvline { display:inline-block; font-weight:700; color:var(--ink); }
+  #check { flex:0 0 auto; font-size:12px; font-weight:700; background:#fffdf6; border:1.5px dashed var(--gold);
+    color:var(--gold); border-radius:8px; padding:8px 12px; margin-top:2px; white-space:nowrap; }
+  .btns { display:flex; gap:6px; flex:0 0 auto; margin-top:2px; }
+  button.nav { font:inherit; font-size:12px; font-weight:700; padding:7px 13px; border-radius:8px;
+    border:1.5px solid var(--ink); background:#fffdf6; color:var(--ink); cursor:pointer; }
+  button.nav:hover { background:var(--ink); color:var(--paper); }
+  button.nav:disabled { opacity:.35; cursor:default; }
+  button.nav:disabled:hover { background:#fffdf6; color:var(--ink); }
+  #summary { position:absolute; inset:5% 7%; z-index:40; background:rgba(255,253,246,.97);
+    border:2px solid var(--gold); border-radius:12px; padding:16px 20px; overflow:auto; display:none; }
+  #summary h2 { font-size:15px; margin-bottom:8px; }
+  #summary table { width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:9px; }
+  #summary td, #summary th { border-bottom:1px solid var(--line); padding:3px 6px; text-align:left; }
+  #summary th { color:var(--grey); font-size:10.5px; }
+  #summary .ok { color:var(--green); font-weight:800; }
+  #summary .risk { font-size:12px; line-height:1.55; }
+  #summary .risk b { color:var(--red); }
+  .legend { position:absolute; left:10px; top:8px; z-index:20; display:flex; flex-wrap:wrap; gap:4px 8px;
+    max-width:44%; pointer-events:none; }
+  .lg { font-size:9.5px; font-weight:700; color:#fff; padding:2px 8px; border-radius:12px; opacity:.9;
+    pointer-events:auto; cursor:pointer; user-select:none; }
+  .lg.off { opacity:.24; }
+  .lg.sel { outline:2px solid var(--ink); outline-offset:1px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>〈경성의 고독한 미식가들〉 관객 동선<small>0710 · 60명 · 범례 클릭 = 배우 트랙 추적</small></h1>
+  <div class="tabs">
+    <button class="tab on" id="tabA1">1막</button>
+    <button class="tab" id="tabA2">2막</button>
+  </div>
+  <button id="modeBtn">이동별</button>
+  <div class="dots" id="dots"></div>
+</header>
+
+<div id="stage">
+  <div class="legend" id="legend"></div>
+  <div id="summary"></div>
+</div>
+
+<div id="panel">
+  <div id="desc"><div class="t"></div><div class="d"></div></div>
+  <div id="check"></div>
+  <div class="btns">
+    <button class="nav" id="prev">◂ 이전</button>
+    <button class="nav" id="next">다음 ▸</button>
+    <button class="nav" id="reset">처음</button>
+  </div>
+</div>
+
+<script>
+const C = { red:'#b03a2e', purple:'#7d4a9e', teal:'#177a63', orange:'#c96f14',
+  blue:'#2c5f9e', gold:'#a8781a', green:'#4a7c2f', brown:'#7a5230', grey:'#6b5d4d' };
+
+function S(no, title, cast){
+  return `<span class="no">${no}</span> ${title}<span class="cast">🎭 ${cast}</span>`;
+}
+function M(from,to,actor,n,color){ return [from,to,actor,n,color]; }
+
+const ACT1 = {
+ nodes: {
+  mainhall: {x:50, y:11, label:'미쒰코시 메인홀·딴스홀'},
+  daichiSt: {x:21, y:12, label:'다이치의 길거리'},
+  cafe:     {x:50, y:47, label:'카페 아카시', hub:true},
+  tamjeong: {x:11, y:36, label:'탐정의 길거리'},
+  chongdok: {x:11, y:66, label:'조선총독부'},
+  jong:     {x:14, y:90, label:'정종학의 길거리'},
+  salon:    {x:35, y:90, label:'청춘 미용원'},
+  brewery:  {x:66, y:90, label:'연풍 양조장'},
+  ainahome: {x:89, y:66, label:'아이나의 집'},
+  changgo:  {x:89, y:32, label:'카페창고(구-해동서림)'},
+ },
+ steps: [
+ { t:'#1 미쒰코시 메인홀 — 결혼식', d:'해운 사회 → 혼인서약 → 축가 → 만세 삼창 → 축포와 함께 총성 3발, 다이치 쓰러짐. 영이·건열·린카가 총을 잡고 있다. 시계 역행 — 1주일 전으로.',
+   counts:{mainhall:60}, chk:'관객 60 — 결혼식 하객', mv:[],
+   scenes:{mainhall:S('#1','결혼식 — 총성 3발','전원 10 (해운·아이나·다이치·영이·건열·린카·탐정·양조장주인·정종학·영재)')} },
+ { t:'시계 역행 — #2-1 카페 아카시', d:'전원이 카페 아카시로. 영이·건열의 한글 실랑이, 해운의 롤렉스 첫 등장, 해운-아이나 첫 대면.',
+   counts:{cafe:60}, chk:'60 전원 이동',
+   mv:[ M('mainhall','cafe','전원',60,C.grey) ],
+   scenes:{cafe:S('#2-1','첫 만남 · 롤렉스','해운·아이나·다이치·영이·건열·탐정')} },
+ { t:'#2 블록 — 스파인 + 3분기', d:'탐정·다이치·아이나가 각자 관객을 데리고 분기. 카페 잔류 40명은 해운의 칼럼①을 이어 본다.',
+   counts:{cafe:40, tamjeong:8, chongdok:8, changgo:4},
+   chk:'40 + 8 + 8 + 4 = 60 ✓',
+   mv:[ M('cafe','tamjeong','탐정',8,C.blue), M('cafe','chongdok','다이치',8,C.red),
+        M('cafe','changgo','아이나',4,C.teal) ],
+   scenes:{cafe:S('#2-1-1','칼럼① 커피 찬사','해운'),
+           tamjeong:S('#2-2','만두 노점 탐정수업','탐정·린카'),
+           chongdok:S('#2-3','다이치의 사무실 (순사 미션)','다이치·순사'),
+           changgo:S('#2-4','아이나와 영재 — 회상','아이나·영재')} },
+ { t:'#3 블록 — 대등 4분기', d:'네 공간이 대등하게 동시 진행·동시 종료. 카페창고 12명에는 #2-4 잔류 4명 포함. ⚠ 미행조 2명 배치는 추정.',
+   counts:{cafe:32, jong:8, salon:8, changgo:12},
+   chk:'32 + 8 + 8 + 12 = 60 ✓',
+   mv:[ M('cafe','salon','영이',4,C.orange), M('cafe','changgo','건열',4,C.green),
+        M('tamjeong','jong','정종학(땅손님)',6,C.brown), M('tamjeong','salon','린카',2,C.purple),
+        M('chongdok','changgo','건열(지령)',4,C.red), M('chongdok','jong','순사(땅임무)',2,C.red),
+        M('chongdok','salon','순사(미행·추정)',2,C.grey) ],
+   scenes:{cafe:S('#3-1','다이치의 러브레터','해운·다이치'),
+           jong:S('#3-2','땅 판매 (투기 장광설)','정종학'),
+           salon:S('#3-3','린카의 의뢰 (인두 미용)','영이·린카'),
+           changgo:S('#3-4','에스페란토 수업 — 눈당코후라','건열')} },
+ { t:'#4 연풍 양조장 — 전원 합류 ①', d:'잡곱주 시식·탁구공 게임. "고장난 시계", 아이나의 키스 → 영재 난입. 다이치는 인솔 후 퇴장.',
+   counts:{brewery:60},
+   chk:'32+8+8+12 = 60 ✓ (앵커)',
+   mv:[ M('cafe','brewery','해운',32,C.gold), M('jong','brewery','정종학',8,C.brown),
+        M('salon','brewery','영이',8,C.orange), M('changgo','brewery','건열',12,C.green) ],
+   scenes:{brewery:S('#4','잡곱주 게임 · 롤렉스 이야기','해운·아이나·다이치·영이·건열·양조장주인·정종학·영재')} },
+ { t:'#5 블록 — 스파인 + 3분기', d:'아이나·영재는 집으로, 나머지 54명은 카페 경유 분기. 잔류 38은 칼럼②. ⚠ 0710: 칼럼② 위치 "해운의 길거리" 확정 — 잔류 38 관람 모델 재검토.',
+   counts:{cafe:38, tamjeong:8, ainahome:6, changgo:8},
+   chk:'38 + 8 + 6 + 8 = 60 ✓',
+   mv:[ M('brewery','cafe','해운',54,C.gold), M('brewery','ainahome','아이나',6,C.teal),
+        M('cafe','tamjeong','탐정',8,C.blue), M('cafe','changgo','건열',8,C.green) ],
+   scenes:{cafe:S('#5-1→#5-1-1','총 전달 · 칼럼② ⚠위치 변경','영이·건열·린카·탐정 / 해운'),
+           tamjeong:S('#5-2','정종학의 의뢰','탐정·정종학'),
+           ainahome:S('#5-3','영재의 기억 — 술지게미','아이나·영재'),
+           changgo:S('#5-4','건열의 각성 — 탄환 조작','건열')} },
+ { t:'#6 블록 — 딴스홀 합류 ② 후 순차 분기', d:'전원 60명이 딴스홀로. 다이치가 린카를 발견하고 12명을 데리고 길거리로 → 같은 그룹이 카페창고로 순차 이동.',
+   counts:{mainhall:48, changgo:12},
+   chk:'48 + 12 = 60 ✓',
+   mv:[ M('cafe','mainhall','해운',38,C.gold), M('tamjeong','mainhall','탐정',8,C.blue),
+        M('ainahome','mainhall','아이나',6,C.teal), M('changgo','mainhall','건열',8,C.green),
+        M('mainhall','daichiSt','다이치',12,C.red), M('daichiSt','changgo','순차 이동',12,C.orange) ],
+   scenes:{mainhall:S('#6-1','스윈댄스 파티 · 노부오 환영','해운·아이나·다이치·린카·모던보이·노부오'),
+           daichiSt:S('#6-2','린카와의 파국 (영이 목격)','다이치·영이·린카'),
+           changgo:S('#6-2-1','영이의 글공부 — 결자해지','영이·건열')} },
+ { t:'#7 아이나의 집 — 단일 진행', d:'만취한 해운을 영재가 데려온다. 술지게미 죽 — "같이 밥 먹으면 식구". 영재 발작(수인번호 134). 좁은 집에 60명 — 근접 관찰의 정점.',
+   counts:{ainahome:60},
+   chk:'48 + 12 = 60 ✓ (앵커)',
+   mv:[ M('mainhall','ainahome','해운',48,C.gold), M('changgo','ainahome','영이·건열',12,C.orange) ],
+   scenes:{ainahome:S('#7','술지게미 죽 — 발작과 각성','해운·아이나·영재')} },
+ { t:'#8 결혼식 재현 — 전원 합류 ③', d:'#1과 같은 대사, 새로운 정보로 "같지만 다른" 결혼식 재체험. 총성 3발 → 프리즈, 아이나 손에 작은 총. 영이가 범인임이 드러난다. 1막 끝 → 2막 #1로.',
+   counts:{mainhall:60},
+   chk:'관객 60 — 재-하객',
+   mv:[ M('ainahome','mainhall','전원',60,C.grey) ],
+   scenes:{mainhall:S('#8','결혼식 재현 — 프리즈','전원 10')} },
+ { t:'1막 검증 요약', d:'1막은 앵커(#1·#4·#7·#8) 사이에 블록 분기(#2·#3·#5·#6)를 끼운 아코디언 구조 — 60명이 네 번 흘어지고 네 번 다시 모인다.',
+   counts:{mainhall:60}, chk:'전 구간 Σ = 60 ✓', mv:[], scenes:{}, summary:true },
+ ],
+ sumTitle:'1막 동선 검증 요약 — 0615 대본 + 0710 브레이크다운',
+ risks:`① <b>#5-1-1 칼럼② 위치 변경(0710 확정: 해운의 길거리)</b> — 카페 잔류 38명의 관람 모델 재검토.<br>
+      ② #3 블록 미행조 2명 배치는 추정 — 실제 동선 확인 필요.<br>
+      ③ 1막 인원은 0615 씨 페이지 기준 — 0710에는 1막 인원 미기재, 리허설 실측으로 검증.<br>
+      ④ #5-1 순간 54명 카페 수용력 · #7 좁은 집 60명 시야·안전 설계 특별 주의.`
+};
+
+const ACT2 = {
+ nodes: {
+  hub:      {x:50, y:47, label:'메인홀', hub:true},
+  daichi:   {x:15, y:14, label:'다이치의 길거리'},
+  ainaSt:   {x:36, y:9,  label:'아이나의 길거리'},
+  yeongi:   {x:60, y:9,  label:'영이의 아카시'},
+  ainaHome: {x:85, y:13, label:'아이나의 집'},
+  linka:    {x:10, y:45, label:'린카의 양장점'},
+  tamjeong: {x:90, y:45, label:'탐정의 길거리'},
+  chase:    {x:28, y:26, label:'다이치 추격전'},
+  chongdok: {x:13, y:78, label:'조선총독부'},
+  gomun:    {x:32, y:90, label:'고문실'},
+  haeun:    {x:52, y:92, label:'해운의 집'},
+  alley:    {x:72, y:89, label:'건열·영이의 길거리'},
+  haedong:  {x:89, y:76, label:'해동서림'},
+ },
+ steps: [
+ { t:'#1 메인홀 — 총성 직후', d:'1막 #8 프리즈 직후. 다섯 인물(다이치·린카·아이나·영이·탐정)이 각자 관객을 데리고 흘어질 준비. 해운은 잔류.',
+   counts:{hub:60}, chk:'관객 60명 전원 메인홀', mv:[],
+   scenes:{hub:S('#1','다섯 트랙 분기','다이치·린카·아이나·영이·탐정·해운')} },
+ { t:'#2 블록 — 5트랙 분기', d:'다섯 인물이 6명씩(총 30명) 인솔해 분기, 메인홀 30명 잔류. 아이나는 #2-3 종료 후 6명을 데리고 영이의 아카시로 합류해 12명.',
+   counts:{hub:30, daichi:6, linka:6, ainaSt:0, yeongi:12, tamjeong:6},
+   chk:'30 + 6+6+12+6 = 60 ✓',
+   mv:[ M('hub','daichi','다이치',6,C.red), M('hub','linka','린카',6,C.purple),
+        M('hub','ainaSt','아이나',6,C.teal), M('hub','yeongi','영이',6,C.orange),
+        M('hub','tamjeong','탐정',6,C.blue), M('ainaSt','yeongi','아이나',6,C.teal) ],
+   scenes:{hub:S('#3-1 대기','잔류 30','해운'),
+           daichi:S('#2-1','건열 지목 · 형의 그림자','다이치·해운'),
+           linka:S('#2-2','옷 수선 · 다도 교습','린카·정종학'),
+           ainaSt:S('#2-3','지령 폐기 — 진짜 표적','아이나'),
+           yeongi:S('#2-4','영이의 자백 · 추방','영이·아이나'),
+           tamjeong:S('#2-5','범인 추리 (해진 환영)','탐정·해진')} },
+ { t:'#3 블록', d:'메인홀 잔류 30명은 #3-1 양조장. 영이→탐정 길거리, 아이나→린카 양장점, 다이치→추격전.',
+   counts:{hub:30, tamjeong:12, linka:12, chase:6},
+   chk:'30 + 12 + 12 + 6 = 60 ✓',
+   mv:[ M('daichi','chase','다이치',6,C.red), M('yeongi','tamjeong','영이',6,C.orange),
+        M('yeongi','linka','아이나',6,C.teal) ],
+   scenes:{hub:S('#3-1','양조장 압류 · 부자 대면','정종학·양조장주인·해운'),
+           tamjeong:S('#3-2','애열단의 뜻 (哀·咽)','탐정·영이'),
+           linka:S('#3-3','암살 의뢰 — 총 건넨','아이나·린카'),
+           chase:S('#3-4','다이치 추격전','다이치·건열')} },
+ { t:'#4 블록 — 아카시 대합류 (52명)', d:'탐정·아이나·다이치가 메인홀 아카시로 합류 — 탐정은 몰래 동태 관찰(0710 확정). 영이는 해동서림으로. 린카는 관객 없이 단독 퇴장.',
+   counts:{hub:52, haedong:8},
+   chk:'30+4+12+6 = 52 · 52+8 = 60 ✓',
+   mv:[ M('tamjeong','hub','탐정',4,C.blue), M('linka','hub','아이나',12,C.teal),
+        M('chase','hub','다이치',6,C.red), M('tamjeong','haedong','영이',8,C.orange) ],
+   scenes:{hub:S('#4-1','발각과 위장 — 겁탈 누명','해운·아이나·다이치·영재·탐정'),
+           haedong:S('#4-2','진범 자백 — "가르쳐줘"','건열·영이')} },
+ { t:'#5 블록', d:'해운·다이치는 고문실로, 탐정은 길거리로. 영이·건열은 야외 골목으로 피신. 메인홀 34명 잔류.',
+   counts:{hub:34, gomun:10, tamjeong:8, alley:8},
+   chk:'34 + 10 + 8 + 8 = 60 ✓',
+   mv:[ M('hub','gomun','다이치(해운 연행)',10,C.red), M('hub','tamjeong','탐정',8,C.blue),
+        M('haedong','alley','영이·건열',8,C.green) ],
+   scenes:{hub:S('#5-1','인수인계 · 자결 암시','아이나·양조장주인'),
+           gomun:S('#5-2','채찍 심문 ("쉰익")','다이치·해운'),
+           tamjeong:S('#5-3','정보 장사 — 500원','탐정·정종학'),
+           alley:S('#5-4','진실게임 — 동지 됨','건열·영이')} },
+ { t:'#6 블록', d:'탐정·영이·건열이 양조장에 합류해 40명 — "본부는 없었다" 폭로. 아이나·다이치는 총독부, 해운·정종학은 해운의 집.',
+   counts:{hub:40, chongdok:12, haeun:8},
+   chk:'(28+4+8) + 12 + 8 = 60 ✓',
+   mv:[ M('hub','chongdok','아이나',6,C.teal), M('gomun','chongdok','다이치',6,C.red),
+        M('gomun','haeun','해운',4,C.gold), M('tamjeong','haeun','정종학',4,C.brown),
+        M('tamjeong','hub','탐정',4,C.blue), M('alley','hub','영이·건열',8,C.green) ],
+   scenes:{hub:S('#6-1','본부는 없었다 — 임무 분배','영이·건열·탐정'),
+           chongdok:S('#6-2','동반 참석 관철 · 죽음의 키스','아이나·다이치'),
+           haeun:S('#6-3','에스페란토 유서 (해진 환영)','정종학·해운·해진')} },
+ { t:'#7 블록', d:'해운 8명 전부가 메인홀(#7-1)로 — 아무도 데려가지 않아 36명 그대로 #8-1로. 영이→양장점, 건열·아이나→해동서림, 다이치는 총독부 잔류.',
+   counts:{hub:36, haedong:12, chongdok:6, linka:6},
+   chk:'(28+8) + 12 + 6 + 6 = 60 ✓',
+   mv:[ M('hub','linka','영이',6,C.orange), M('hub','haedong','건열',6,C.green),
+        M('chongdok','haedong','아이나',6,C.teal), M('haeun','hub','해운',8,C.gold) ],
+   scenes:{hub:S('#7-1','해진·영재 회상 — 시계 암호','해진·영재·해운'),
+           haedong:S('#7-2','자책과 진심 — 탄환 박스','아이나·건열'),
+           chongdok:S('#7-3','차명 매입 거래','다이치·정종학'),
+           linka:S('#7-4','총 반납 · 정장 치수','영이·린카')} },
+ { t:'#8 블록 — 작전회의 (51명)', d:'건열·다이치·영이가 딴스홀로 합류해 51명. 아이나가 양장점으로 가 린카와 함께 9명.',
+   counts:{hub:51, linka:9},
+   chk:'36+6+6+3 = 51 · 51+9 = 60 ✓',
+   mv:[ M('haedong','hub','건열',6,C.green), M('chongdok','hub','다이치',6,C.red),
+        M('linka','hub','영이',3,C.orange), M('haedong','linka','아이나',6,C.teal) ],
+   scenes:{hub:S('#8-1','딴스홀+탐정사무소 — 작전회의','탐정·양조장주인·건열·영이'),
+           linka:S('#8-2','총 주머니 드레스','아이나·린카·탐정')} },
+ { t:'#9 블록', d:'영이·건열이 해동서림(사격 연습)으로. 린카 9명은 양장점 잔류, 다이치가 합류. ⚠ #9-2의 12명은 인솔자 미정.',
+   counts:{hub:39, haedong:12, linka:9},
+   chk:'39 + 12 + 9 = 60 ✓',
+   mv:[ M('hub','haedong','영이·건열',12,C.green) ],
+   scenes:{hub:S('#9-1','마지막 밥상 — 술지게미','해운·아이나·영재'),
+           haedong:S('#9-2','사격 연습 · "죽지마" ⚠인솔 미정','영이·건열'),
+           linka:S('#9-3','야광 브로치 — 표적의 표식','다이치·린카')} },
+ { t:'#10 블록 — 검증 완료 지점', d:'#9-2의 12명과 다이치 9명이 메인홀로 합류: 27+12+9 = 48 (0710 "검증 완료"). 아이나·영재 12명은 아이나의 집으로.',
+   counts:{hub:48, ainaHome:12},
+   chk:'27+12+9 = 48 · 48+12 = 60 ✓',
+   mv:[ M('haedong','hub','인솔자 미정',12,C.green), M('linka','hub','다이치',9,C.red),
+        M('hub','ainaHome','아이나·영재',12,C.teal) ],
+   scenes:{hub:S('#10-1','미식 칼럼 청탁','해운·탐정'),
+           ainaHome:S('#10-2','마지막 이밄 — "몰라"','아이나·영재')} },
+ { t:'#11 피날레 — 전원 재합류', d:'총독부 시정 기념식 + 미식파티. 아이나의 집 12명이 재합류해 60명 전원이 메인홀 앞에. 영재의 "눈, 당코, 후라!!" — 촛불 = 바다. 암전.',
+   counts:{hub:60},
+   chk:'48 + 12 = 60 — 전원 재합류 ✓',
+   mv:[ M('ainaHome','hub','전원',12,C.teal) ],
+   scenes:{hub:S('#11','기념식 · 미식파티 — 촛불의 바다','전원 10 + 군중')} },
+ { t:'2막 검증 요약', d:'2막은 원심 구조 — #1에서 크게 쪠개 뒤 #11까지 완전히 모이지 않는다. 블록별 합계는 전 구간 60명 유지.',
+   counts:{hub:60}, chk:'전 구간 Σ = 60 ✓', mv:[], scenes:{}, summary:true },
+ ],
+ sumTitle:'2막 동선 검증 요약 — 씬 브레이크다운 0710',
+ risks:`① <b>#9-2 해동서림 12명 인솔자 미정</b> — #10-1 합류 동선의 유일한 공백. 리허설에서 확정 필요.<br>
+      ② #3-3 린카 관객 없이 단독 퇴장 — 12명 전원 아이나 인솔, 이동 대열 길어짐.<br>
+      ③ #4-1 순간 최대 52명 — 아카시 구역 수용력·시야 확보 점검.<br>
+      ④ 런닝타임 전 씨 미실측 — duration_min 기입 대기.`
+};
+
+const ACTS = { a1: ACT1, a2: ACT2 };
+let actKey = 'a1';
+const pos = { a1:{b:0,s:0}, a2:{b:0,s:0} };
+let animating = false;
+let stepMode = 'move';
+let activeColor = null;
+
+const stage = document.getElementById('stage');
+const dotsEl = document.getElementById('dots');
+const legendEl = document.getElementById('legend');
+let nodeEls = {};
+
+const LEG = [['다이치',C.red],['린카',C.purple],['아이나',C.teal],['영이',C.orange],
+             ['탐정',C.blue],['해운·잔류',C.gold],['건열',C.green],['정종학',C.brown]];
+legendEl.innerHTML = LEG.map(([n,c])=>`<span class="lg" data-color="${c}" style="background:${c}">${n}</span>`).join('');
+[...legendEl.querySelectorAll('.lg')].forEach(el=>{
+  el.onclick = e => { e.stopPropagation(); toggleTrack(el.dataset.color); };
+});
+
+function toggleTrack(c){
+  activeColor = (activeColor===c) ? null : c;
+  [...legendEl.querySelectorAll('.lg')].forEach(el=>{
+    el.classList.toggle('sel', activeColor===el.dataset.color);
+    el.classList.toggle('off', activeColor && activeColor!==el.dataset.color);
+  });
+  render();
+}
+
+function act(){ return ACTS[actKey]; }
+function P(){ return pos[actKey]; }
+
+function buildStage(){
+  for (const el of Object.values(nodeEls)) el.remove();
+  nodeEls = {};
+  for (const [k,n] of Object.entries(act().nodes)) {
+    const el = document.createElement('div');
+    el.className = 'node' + (n.hub ? ' hub':'');
+    el.style.left = n.x+'%'; el.style.top = n.y+'%';
+    el.innerHTML = `<div class="nm">${n.label}</div><div class="sc"></div><div class="ct">0</div>`;
+    stage.appendChild(el); nodeEls[k] = el;
+  }
+  dotsEl.innerHTML = '';
+  act().steps.forEach((_,i)=>{
+    const d = document.createElement('div'); d.className='dot';
+    d.onclick = e => { e.stopPropagation(); if(!animating){ P().b=i; P().s=act().steps[i].mv.length; render(); } };
+    dotsEl.appendChild(d);
+  });
+}
+
+function center(k){
+  const r = nodeEls[k].getBoundingClientRect(), s = stage.getBoundingClientRect();
+  return { x: r.left + r.width/2 - s.left, y: r.top + r.height/2 - s.top };
+}
+
+function countsAt(b, s){
+  const step = act().steps[b];
+  if (b===0 || step.mv.length===0) return {...step.counts};
+  const base = {...act().steps[b-1].counts};
+  for (let i=0;i<s;i++){
+    const [from,to,,n] = step.mv[i];
+    base[from] = (base[from]||0) - n;
+    base[to]   = (base[to]||0) + n;
+    if (base[from] <= 0) delete base[from];
+  }
+  return base;
+}
+
+function shownScenes(b, s){
+  const step = act().steps[b];
+  const set = new Set();
+  if (b===0 || step.mv.length===0){ Object.keys(step.scenes||{}).forEach(k=>set.add(k)); return set; }
+  const fromto = new Set(); step.mv.forEach(m=>{ fromto.add(m[0]); fromto.add(m[1]); });
+  Object.keys(step.scenes||{}).forEach(k=>{ if(!fromto.has(k)) set.add(k); });
+  for (let i=0;i<s;i++) set.add(step.mv[i][1]);
+  return set;
+}
+
+function render(){
+  const step = act().steps[P().b];
+  const b = P().b, s = P().s;
+  const moves = step.mv;
+  const previewing = moves.length>0 && s===0;
+  const finished  = moves.length===0 || s>=moves.length;
+  const cnt = countsAt(b, s);
+  const shown = shownScenes(b, s);
+  const curMove = (!previewing && !finished) ? moves[s-1] : null;
+
+  const trkNodes = new Set();
+  if (activeColor) step.mv.forEach(m=>{ if(m[4]===activeColor){ trkNodes.add(m[0]); trkNodes.add(m[1]); } });
+
+  for (const k of Object.keys(act().nodes)){
+    const c = cnt[k] ?? 0;
+    const el = nodeEls[k];
+    el.querySelector('.ct').textContent = c;
+    el.querySelector('.sc').innerHTML = (shown.has(k) && step.scenes[k]) ? step.scenes[k] : '';
+    el.classList.toggle('on', c>0 || shown.has(k));
+    el.classList.remove('src','dst');
+    el.classList.toggle('dim', !!activeColor && !trkNodes.has(k));
+  }
+  if (curMove){
+    nodeEls[curMove[0]].classList.add('src');
+    nodeEls[curMove[1]].classList.add('dst');
+  }
+
+  const head = (actKey==='a1'?'1막 ':'2막 ')+(b+1)+'/'+act().steps.length+' · '+step.t;
+  const prog = moves.length>0 ? `<span class="prog">이동 ${Math.min(s,moves.length)}/${moves.length}</span>` : '';
+  const trk  = activeColor ? `<span class="trk">◆ 트랙 추적</span>` : '';
+  document.querySelector('#desc .t').innerHTML = head + prog + trk;
+
+  let body;
+  if (previewing){
+    const list = moves.map(m=>{
+      const dim = activeColor && m[4]!==activeColor;
+      return `<span style="${dim?'opacity:.32':'font-weight:800'}">${m[2]} ${m[3]}명 → ${act().nodes[m[1]].label}</span>`;
+    }).join(' &nbsp;·&nbsp; ');
+    body = `<b>이동 예고 (${moves.length}건):</b> <span class="mvline">${list}</span><br>화면 클릭 시 ${stepMode==='block'?'블록을 한 번에':'인솔 이동을 하나씩'} 진행합니다.`;
+  } else if (curMove){
+    body = `<span class="mvline">▶ ${curMove[2]}가 관객 ${curMove[3]}명을 인솔 → ${act().nodes[curMove[1]].label}</span>`;
+  } else {
+    body = step.d;
+  }
+  document.querySelector('#desc .d').innerHTML = body.replaceAll('⚠','<b class="w">⚠</b>');
+  document.getElementById('check').textContent = finished ? step.chk : (previewing ? '예고' : `진행 중 (${s}/${moves.length})`);
+
+  [...dotsEl.children].forEach((d,j)=>{ d.className='dot'+(j<b?' done':j===b?' now':''); });
+  document.getElementById('prev').disabled = (b===0 && s===0);
+  document.getElementById('next').disabled = (b===act().steps.length-1 && finished);
+
+  const sm = document.getElementById('summary');
+  const showSum = step.summary && finished;
+  sm.style.display = showSum ? 'block' : 'none';
+  if (showSum){
+    const rows = act().steps.filter(x=>!x.summary).map(x=>
+      `<tr><td>${x.t.split('—')[0].trim()}</td><td>${x.chk}</td><td class="ok">✓</td></tr>`).join('');
+    sm.innerHTML = `<h2>${act().sumTitle}</h2>
+      <table><tr><th>단계</th><th>검산</th><th></th></tr>${rows}</table>
+      <div class="risk"><b>남은 리스크 · 추정치</b><br>${act().risks}</div>`;
+  }
+}
+
+function fly(m, delay=0){
+  const [from,to,actor,n,color] = m;
+  const dim = activeColor && color!==activeColor;
+  const peak = dim ? 0.2 : 1;
+  const a = center(from), b = center(to);
+  const chip = document.createElement('div');
+  chip.className='chip'; chip.textContent=`${actor} ${n}`; chip.style.background=color;
+  chip.style.left=a.x+'px'; chip.style.top=a.y+'px'; chip.style.opacity='0';
+  stage.appendChild(chip);
+  chip.animate([
+    { transform:'translate(-50%,-50%)', opacity:0 },
+    { transform:'translate(-50%,-50%)', opacity:peak, offset:.14 },
+    { transform:`translate(calc(-50% + ${b.x-a.x}px), calc(-50% + ${b.y-a.y}px))`, opacity:peak, offset:.88 },
+    { transform:`translate(calc(-50% + ${b.x-a.x}px), calc(-50% + ${b.y-a.y}px))`, opacity:0 }
+  ], { duration:1000, delay, easing:'cubic-bezier(.45,.05,.35,1)', fill:'forwards' });
+  setTimeout(()=>chip.remove(), delay+1100);
+}
+
+function quickHead(step){
+  const head=(actKey==='a1'?'1막 ':'2막 ')+(P().b+1)+'/'+act().steps.length+' · '+step.t;
+  document.querySelector('#desc .t').innerHTML = head+`<span class="prog">이동 ${P().s}/${step.mv.length}</span>`+(activeColor?`<span class="trk">◆ 트랙 추적</span>`:'');
+}
+
+function runBlockAnim(step, fromIdx){
+  animating = true;
+  let d = 0;
+  for (let i=fromIdx; i<step.mv.length; i++){ fly(step.mv[i], d); d += 170; }
+  P().s = step.mv.length;
+  setTimeout(()=>{ render(); animating=false; }, d + 700);
+  quickHead(step);
+  document.querySelector('#desc .d').innerHTML = `<span class="mvline">▶ 블록 이동 진행…</span>`;
+}
+
+function advance(){
+  const step = act().steps[P().b];
+  const moves = step.mv;
+  if (stepMode === 'block'){
+    if (moves.length>0 && P().s < moves.length){ runBlockAnim(step, P().s); return; }
+    if (P().b < act().steps.length-1){
+      P().b++; const nx = act().steps[P().b];
+      if (nx.mv.length) runBlockAnim(nx, 0);
+      else { P().s = 0; render(); }
+    }
+    return;
+  }
+  if (moves.length>0 && P().s < moves.length){
+    const m = moves[P().s]; P().s++;
+    animating = true; fly(m, 0);
+    setTimeout(()=>{ render(); animating=false; }, 850);
+    quickHead(step);
+    document.querySelector('#desc .d').innerHTML = `<span class="mvline">▶ ${m[2]}가 관객 ${m[3]}명을 인솔 → ${act().nodes[m[1]].label}</span>`;
+    return;
+  }
+  if (P().b < act().steps.length-1){ P().b++; P().s = 0; render(); }
+}
+
+function back(){
+  if (P().s > 0){ P().s = 0; render(); return; }
+  if (P().b > 0){ P().b--; P().s = act().steps[P().b].mv.length; render(); }
+}
+
+function switchAct(k){
+  if (animating || actKey===k) return;
+  actKey = k;
+  document.getElementById('tabA1').classList.toggle('on', k==='a1');
+  document.getElementById('tabA2').classList.toggle('on', k==='a2');
+  buildStage();
+  render();
+}
+
+function toggleMode(){
+  if (animating) return;
+  stepMode = (stepMode==='move') ? 'block' : 'move';
+  const btn = document.getElementById('modeBtn');
+  btn.textContent = (stepMode==='block') ? '블록' : '이동별';
+  btn.classList.toggle('block', stepMode==='block');
+  render();
+}
+
+stage.addEventListener('click', ()=>{ if(!animating) advance(); });
+document.getElementById('next').onclick = e=>{ e.stopPropagation(); if(!animating) advance(); };
+document.getElementById('prev').onclick = e=>{ e.stopPropagation(); if(!animating) back(); };
+document.getElementById('reset').onclick = e=>{ e.stopPropagation(); if(!animating){ P().b=0; P().s=0; render(); } };
+document.getElementById('tabA1').onclick = ()=>switchAct('a1');
+document.getElementById('tabA2').onclick = ()=>switchAct('a2');
+document.getElementById('modeBtn').onclick = e=>{ e.stopPropagation(); toggleMode(); };
+document.addEventListener('keydown', e=>{
+  if(animating) return;
+  if((e.key==='ArrowRight'||e.key===' ')){ e.preventDefault(); advance(); }
+  if(e.key==='ArrowLeft'){ back(); }
+  if(e.key==='1') switchAct('a1');
+  if(e.key==='2') switchAct('a2');
+  if(e.key.toLowerCase()==='m') toggleMode();
+});
+
+buildStage();
+render();
+</script>
+</body>
+</html>

@@ -146,9 +146,7 @@ function S(no, title, cast){
 }
 function M(from,to,actor,n,color){ return [from,to,actor,n,color]; }
 
-// 씬 상세 — 키 '막#씬' → { event(주요 사건), line(주요 대사, 짧게) }. 1막·2막 씬번호 중복 방지 접두어.
 const DETAIL = {
- // ── 1막 (키 접두어 '1') ──
  '1#1':{event:'결혼식 도중 축포와 함께 총성 3발, 다이치가 쓰러진다. 영이·건열·린카가 총을 든 채 발각. 시계 역행 → 1주일 전.'},
  '1#2-1':{event:'카페 손님맞이. 롤렉스 첫 등장, 해운-아이나 첫 대면(손목 잡음→정적). 탐정·다이치·아이나가 관객을 데리고 분기 퇴장.'},
  '1#2-1-1':{event:'해운이 미식 칼럼① 〈완벽한 커피에 대한 찬사〉 낭독 — 아이나 묘사로 미끄러진다.'},
@@ -169,7 +167,6 @@ const DETAIL = {
  '1#6-2-1':{event:'영이가 건열에게 글을 배운다(편지 쓰려고). "매듭은 스스로 끊어내야."'},
  '1#7':{event:'취한 해운을 영재가 데려온다. 술지게미 죽. 영재가 롤렉스를 보고 발작(수인번호 134).'},
  '1#8':{event:'#1 결혼식 재현(같은 대사, 새 정보). 총성 3발→프리즈, 아이나 손에 작은 총. 영이가 범인.'},
- // ── 2막 (키 접두어 '2') ──
  '2#1':{event:'1막 #8 프리즈 직후. 다섯 인물이 각자 독백하며 관객을 다섯 트랙으로 분기. 해운은 잔류.'},
  '2#2-1':{event:'다이치가 신입경찰(관객)에게 건열을 저격범으로 지목. 해운과 대화, 형·영재 질문에 예민.'},
  '2#2-2':{event:'린카가 옷 수선·다도(화경청적) 교습. 정종학 행패→일본인 확인 후 굽신.'},
@@ -205,7 +202,6 @@ const DETAIL = {
  '2#3-1 대기':{event:'메인홀 잔류 30명은 다음 합류점(#3-1 양조장)까지 대기.'},
 };
 
-// ─────────────────────────── 1막 ───────────────────────────
 const ACT1 = {
  nodes: {
   mainhall: {x:50, y:33, label:'미쓰코시 메인홀·딴스홀'},
@@ -298,7 +294,6 @@ const ACT1 = {
       ④ #5-1 순간 54명 카페 수용력 · #7 좁은 집 60명 시야·안전 설계 특별 주의.`
 };
 
-// ─────────────────────────── 2막 ───────────────────────────
 const ACT2 = {
  nodes: {
   hub:      {x:50, y:40, label:'메인홀', hub:true},
@@ -319,10 +314,9 @@ const ACT2 = {
  { t:'#1 메인홀 — 총성 직후', d:'1막 #8 프리즈 직후. 다섯 인물(다이치·린카·아이나·영이·탐정)이 각자 관객을 데리고 흩어질 준비. 해운은 잔류.',
    counts:{hub:60}, chk:'관객 60명 전원 메인홀', mv:[],
    scenes:{hub:S('#1','다섯 트랙 분기','다이치·린카·아이나·영이·탐정·해운')} },
- { t:'#2 블록 — 5트랙 분기', d:'다섯 인물이 6명씩(총 30명) 인솔해 분기, 메인홀 30명 잔류. 아이나는 #2-3 종료 후 6명을 데리고 해동서림(영이)으로 합류해 12명.',
+ { t:'#2 블록 — 5트랙 분기', d:'다섯 인물이 6명씩(총 30명) 인솔해 분기, 메인홀 30명 잔류. 아이나는 #2-3 종료 후 6명을 데리고 영이의 아카시로 합류해 12명.',
    counts:{hub:30, daichi:6, linka:6, ainaSt:0, yeongi:12, tamjeong:6},
    chk:'30 + 6+6+12+6 = 60 ✓',
-   labels:{yeongi:'해동서림'},
    mv:[ M('hub','daichi','다이치',6,C.red), M('hub','linka','린카',6,C.purple),
         M('hub','ainaSt','아이나',6,C.teal), M('hub','yeongi','영이',6,C.orange),
         M('hub','tamjeong','탐정',6,C.blue), M('ainaSt','yeongi','아이나',6,C.teal) ],
@@ -332,10 +326,9 @@ const ACT2 = {
            ainaSt:S('#2-3','지령 폐기 — 진짜 표적','아이나'),
            yeongi:S('#2-4','영이의 자백 · 추방','영이·아이나'),
            tamjeong:S('#2-5','범인 추리 (해진 환영)','탐정·해진')} },
- { t:'#3 블록', d:'해동서림(영이) 12명이 흩어진다: 영이→탐정 길거리, 아이나→린카 양장점. 메인홀 잔류 30명은 #3-1 양조장, 다이치→추격전.',
+ { t:'#3 블록', d:'메인홀 잔류 30명은 #3-1 양조장. 영이→탐정 길거리, 아이나→린카 양장점, 다이치→추격전.',
    counts:{hub:30, tamjeong:12, linka:12, chase:6},
    chk:'30 + 12 + 12 + 6 = 60 ✓',
-   labels:{yeongi:'해동서림'},
    mv:[ M('daichi','chase','다이치',6,C.red), M('yeongi','tamjeong','영이',6,C.orange),
         M('yeongi','linka','아이나',6,C.teal) ],
    scenes:{hub:S('#3-1','양조장 압류 · 부자 대면','정종학·양조장주인·해운'),
@@ -414,19 +407,18 @@ const ACT2 = {
       ④ 런닝타임 전 씬 미실측 — duration_min 기입 대기.`
 };
 
-// ─────────────────────────── 엔진 ───────────────────────────
 const ACTS = { a1: ACT1, a2: ACT2 };
 let actKey = 'a1';
 const pos = { a1:{b:0,s:0}, a2:{b:0,s:0} };
 let animating = false;
-let stepMode = 'move';        // 'move' | 'block'
-let activeColor = null;        // 트랙 추적 필터
+let stepMode = 'move';
+let activeColor = null;
 
 const stage = document.getElementById('stage');
 const dotsEl = document.getElementById('dots');
 const legendEl = document.getElementById('legend');
 let nodeEls = {};
-let selectedNode = null;   // 우측 상세 패널에 표시할 공간(클릭 선택)
+let selectedNode = null;
 
 const LEG = [['다이치',C.red],['린카',C.purple],['아이나',C.teal],['영이',C.orange],
              ['탐정',C.blue],['해운·잔류',C.gold],['건열',C.green],['정종학',C.brown]];
@@ -495,7 +487,6 @@ function shownScenes(b, s){
   return set;
 }
 
-// scene HTML(S 헬퍼 출력)에서 씬번호·제목·배역 추출
 function parseScene(html){
   const no = (html.match(/class="no">([^<]*)</) || ['',''])[1];
   const cast = (html.match(/🎭\s*([^<]*)</) || ['',''])[1];
@@ -504,7 +495,6 @@ function parseScene(html){
   return { no, title, cast };
 }
 
-// 이동 데이터에서 이 공간의 관객 IN(도착)·OUT(다음 블록 출발) 자동 산출
 function sceneFlow(b, k){
   const inn=[], out=[];
   const step = act().steps[b];
@@ -607,9 +597,8 @@ function render(){
   renderDetail();
 }
 
-// 애니메이션 타이밍(ms): 나타남 → 정지(선명히 보임) → 이동 → 사라짐. 속도 배율 speedMul 적용.
 const BASE = { APPEAR:350, HOLD:750, MOVE:1250, FADE:350 };
-let speedMul = 1;   // 빠름 0.5 · 보통 1 · 느림 1.7
+let speedMul = 1;
 function T(){ const a=BASE.APPEAR*speedMul, h=BASE.HOLD*speedMul, m=BASE.MOVE*speedMul, f=BASE.FADE*speedMul;
   return { a, h, m, f, tot:a+h+m+f }; }
 
